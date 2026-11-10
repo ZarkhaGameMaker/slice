@@ -56,7 +56,7 @@ export function TransactionList({
 
   // Opérations du jour, regroupées par date (à ne pas confondre avec les groupes d’opérations).
   const days = new Map<string, Entry[]>();
-  for (const e of [...visible].sort((a, b) => (a.date === b.date ? a.label.localeCompare(b.label) : a.date < b.date ? 1 : -1))) {
+  for (const e of visible.sort((a, b) => (a.date === b.date ? a.label.localeCompare(b.label) : a.date < b.date ? 1 : -1))) {
     const g = days.get(e.date);
     if (g) g.push(e);
     else days.set(e.date, [e]);

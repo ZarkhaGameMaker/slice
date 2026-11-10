@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { createPortal } from 'react-dom';
 import { categoryOf } from '../lib/categories';
 import { ordinaryExpense, ordinaryIncome, type MonthData } from '../lib/finance';
-import { dayLabel, dayMonthShort, dayShort, money, signedMoney } from '../lib/format';
+import { dayLabel, dayMonthShort, dayShort, money, plural, round2, signedMoney } from '../lib/format';
 import { DURATION, usePresence } from '../lib/motion';
 import type { Account, Entry, TxGroup, TxType } from '../lib/types';
 import { ArrowDownIcon, ArrowUpIcon, CalendarIcon, CheckIcon, LinkIcon, RepeatIcon, SparkIcon, TargetIcon, WalletIcon } from './Icons';
@@ -45,10 +45,8 @@ const inNetByDefault = (e: Entry) => !e.exceptional && e.budget !== 0;
 const sideOf = (e: Entry) => (e.budget === 0 ? e.type : e.budgetType);
 /** Montant à afficher : celui qui compte, ou le montant réel d'une opération qui ne compte pas. */
 const shownAmount = (e: Entry) => (e.budget === 0 ? e.amount : e.budget);
-const sum = (list: Entry[]) => Math.round(list.reduce((s, e) => s + e.budget, 0) * 100) / 100;
-const round2 = (n: number) => Math.round(n * 100) / 100;
+const sum = (list: Entry[]) => round2(list.reduce((s, e) => s + e.budget, 0));
 const byDate = (a: Entry, b: Entry) => (a.date === b.date ? b.amount - a.amount : a.date < b.date ? -1 : 1);
-const plural = (n: number) => (n > 1 ? 's' : '');
 
 export function Stats({ month, today, periodLabel, accounts, groups, showAccount }: Props) {
   // Les indicateurs raisonnent sur l'ordinaire ; les soldes, eux, comptent tout.
@@ -78,7 +76,8 @@ export function Stats({ month, today, periodLabel, accounts, groups, showAccount
   // Opérations (dés)activées à la main dans le détail : choix temporaires, remis à zéro
   // dès que le mois affiché change. Rien n'est enregistré, les données restent intactes.
   const [picks, setPicks] = useState<Map<string, boolean>>(new Map());
-  useEffect(() => setPicks(new Map()), [month]);
+  // Déjà vide au montage : inutile d'en reposer une neuve, ce serait un rendu de plus.
+  useEffect(() => setPicks((prev) => (prev.size ? new Map() : prev)), [month]);
   const counted = (e: Entry) => picks.get(e.id) ?? countedByDefault(e);
   const toggle = (e: Entry) =>
     e.budget === 0 ||
@@ -96,10 +95,12 @@ export function Stats({ month, today, periodLabel, accounts, groups, showAccount
   const dropped = month.entries.filter((e) => inNetByDefault(e) && !inNet(e));
   const added = month.entries.filter((e) => !inNetByDefault(e) && inNet(e));
 
-  const incomeTotal = sum(incomes.filter(counted));
-  const expenseTotal = sum(expenses.filter(counted));
-  const incomeCount = incomes.filter(counted).length;
-  const expenseCount = expenses.filter(counted).length;
+  const countedIncomes = incomes.filter(counted);
+  const countedExpenses = expenses.filter(counted);
+  const incomeTotal = sum(countedIncomes);
+  const expenseTotal = sum(countedExpenses);
+  const incomeCount = countedIncomes.length;
+  const expenseCount = countedExpenses.length;
   // Bilan des seuls revenus comptés : la soustraction des deux tuiles, choix manuels compris.
   const salaryNet = round2(incomeTotal - expenseTotal);
   // Un choix sur les dépenses ne change pas le libellé de la tuile des revenus, et inversement.
@@ -515,7 +516,7 @@ function groupDays(entries: Entry[], counted: (e: Entry) => boolean) {
     const last = days[days.length - 1];
     if (last?.date === e.date) {
       last.list.push(e);
-      last.sum = Math.round((last.sum + add) * 100) / 100;
+      last.sum = round2(last.sum + add);
     } else days.push({ date: e.date, list: [e], sum: add });
   }
   return days;
@@ -720,7 +721,7 @@ function BalancePopover({
   const pos = usePlacement(popRef, anchor, 'left', onClose, `net-${dropped.length}-${added.length}-${oneOffs.length}`);
   // Les exceptionnelles sont hors bilan : elles ne comptent pas non plus dans le « à venir ».
   const ahead = month.entries.filter((e) => e.date > today && !e.exceptional);
-  const aheadNet = Math.round(ahead.reduce((s, e) => s + (e.type === 'income' ? e.amount : -e.amount), 0) * 100) / 100;
+  const aheadNet = round2(ahead.reduce((s, e) => s + (e.type === 'income' ? e.amount : -e.amount), 0));
   const touched = dropped.length > 0 || added.length > 0;
   const picksLabel =
     dropped.length && added.length ? 'Bilan avec vos choix'

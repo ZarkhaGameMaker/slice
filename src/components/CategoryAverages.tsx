@@ -2,10 +2,11 @@ import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'rea
 import { createPortal } from 'react-dom';
 import { categoryOf } from '../lib/categories';
 import { categoryAverages, ordinaryExpense, ordinaryIncome, type MonthData } from '../lib/finance';
-import { money, moneyRound, monthLabel, monthName, monthShortName, signedMoneyRound } from '../lib/format';
+import { money, moneyRound, monthLabel, monthName, monthShortName, plural, round2, signedMoneyRound } from '../lib/format';
 import { usePresence } from '../lib/motion';
 import type { TxType } from '../lib/types';
 import type { CategorySelection } from './CategoryTreemap';
+import { TypeTabs } from './TypeTabs';
 
 interface Props {
   /** Toutes les périodes du compte affiché. */
@@ -51,7 +52,7 @@ export function CategoryAverages({ months, month, today, selection, onSelect }: 
     : `${monthShortName(first.key)} → ${monthShortName(last.key)} ${last.key.slice(0, 4)}`;
 
   const max = stats.categories[0]?.average ?? 0;
-  const net = Math.round((isIncome ? stats.average - opposite.average : opposite.average - stats.average) * 100) / 100;
+  const net = round2(isIncome ? stats.average - opposite.average : opposite.average - stats.average);
 
   // Période affichée : terminée (comparable), en cours, ou encore à venir (projection).
   // Comme les moyennes, elle ignore les opérations exceptionnelles.
@@ -107,7 +108,7 @@ export function CategoryAverages({ months, month, today, selection, onSelect }: 
         <div>
           <h2>Moyenne par mois</h2>
           <p className="muted">
-            {kept === 0 ? 'Dès qu’un mois sera terminé' : `${kept} mois terminé${kept > 1 ? 's' : ''} · ${range}`}
+            {kept === 0 ? 'Dès qu’un mois sera terminé' : `${kept} mois terminé${plural(kept)} · ${range}`}
           </p>
         </div>
       </header>
@@ -123,14 +124,7 @@ export function CategoryAverages({ months, month, today, selection, onSelect }: 
       ) : (
         <>
           <div className="averages__scope">
-            <div className="segmented segmented--sm" role="tablist" aria-label="Type d’opérations">
-              <button role="tab" aria-selected={!isIncome} className={!isIncome ? 'is-active' : ''} onClick={() => switchType('expense')}>
-                Dépenses
-              </button>
-              <button role="tab" aria-selected={isIncome} className={isIncome ? 'is-active' : ''} onClick={() => switchType('income')}>
-                Revenus
-              </button>
-            </div>
+            <TypeTabs value={type} onChange={switchType} label="Type d’opérations" />
             <div className="chips" role="group" aria-label="Période de calcul">
               {SCOPES.map((n) => (
                 <button

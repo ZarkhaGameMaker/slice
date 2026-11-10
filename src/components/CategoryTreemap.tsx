@@ -1,9 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { categoryOf } from '../lib/categories';
-import { money } from '../lib/format';
+import { money, plural } from '../lib/format';
 import { useElementSize, usePresence } from '../lib/motion';
 import { squarify } from '../lib/treemap';
 import type { Entry, TxType } from '../lib/types';
+import { TypeTabs } from './TypeTabs';
 
 export interface CategorySelection {
   type: TxType;
@@ -119,14 +120,7 @@ export function CategoryTreemap({ periodLabel, entries, selection, onSelect }: P
             {total > 0 && ` · ${money(total)}`}
           </p>
         </div>
-        <div className="segmented segmented--sm" role="tablist" aria-label="Type d’opérations">
-          <button role="tab" aria-selected={!isIncome} className={!isIncome ? 'is-active' : ''} onClick={() => switchType('expense')}>
-            Dépenses
-          </button>
-          <button role="tab" aria-selected={isIncome} className={isIncome ? 'is-active' : ''} onClick={() => switchType('income')}>
-            Revenus
-          </button>
-        </div>
+        <TypeTabs value={type} onChange={switchType} label="Type d’opérations" />
       </header>
 
       <div className="treemap__canvas" ref={canvasRef} onMouseLeave={() => setTip(null)}>
@@ -168,7 +162,7 @@ export function CategoryTreemap({ periodLabel, entries, selection, onSelect }: P
               className={`tile tile--${size}${selected ? ' is-selected' : ''}${dimmed ? ' is-dim' : ''}`}
               style={style}
               aria-pressed={selected}
-              aria-label={`${cat.label} : ${money(g.amount)}, ${pctLabel(share)} %, ${g.count} opération${g.count > 1 ? 's' : ''}`}
+              aria-label={`${cat.label} : ${money(g.amount)}, ${pctLabel(share)} %, ${g.count} opération${plural(g.count)}`}
               onClick={() => onSelect(selected ? null : { type, id: g.id })}
               onMouseMove={moveTip(g.id)}
             >

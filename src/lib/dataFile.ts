@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sanitizeState } from './store';
 import type { AppState } from './types';
+import { plural } from './format';
 
 /* ---------- API du navigateur (absente des types DOM de TypeScript) ---------- */
 
@@ -122,13 +123,17 @@ const DB_STORE = 'fichier';
 const DB_KEY = 'courant';
 let dbPromise: Promise<IDBDatabase> | null = null;
 
-function openDb() {
-  dbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
+function openNamed(name: string) {
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open(name, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(DB_STORE);
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+}
+
+function openDb() {
+  dbPromise ??= openNamed(DB_NAME);
   return dbPromise;
 }
 
@@ -140,12 +145,7 @@ async function openLegacyDb(): Promise<IDBDatabase | null> {
   try {
     const bases = await indexedDB.databases?.();
     if (!bases?.some((b) => b.name === LEGACY_DB)) return null;
-    return await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open(LEGACY_DB, 1);
-      req.onupgradeneeded = () => req.result.createObjectStore(DB_STORE);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
+    return await openNamed(LEGACY_DB);
   } catch {
     return null;
   }
@@ -497,7 +497,7 @@ export function useDataFile(state: AppState, callbacks: Callbacks) {
     cb.current.ask({
       title: `Ouvrir « ${file.name} » ?`,
       message:
-        `Les données affichées seront remplacées par celles du fichier (${n} compte${n > 1 ? 's' : ''}, ${m} opération${m > 1 ? 's' : ''}).` +
+        `Les données affichées seront remplacées par celles du fichier (${n} compte${plural(n)}, ${m} opération${plural(m)}).` +
         (unsaved
           ? ` Les modifications pas encore enregistrées dans « ${current.handle.name} » seront perdues.`
           : current
@@ -564,21 +564,17 @@ export function useDataFile(state: AppState, callbacks: Callbacks) {
     [setLink],
   );
 
-  const status: FileStatus | null = !link
-    ? null
-    : busy
-      ? 'saving'
-      : conflict
-        ? 'conflict'
-        : failed === 'missing'
-          ? 'missing'
-          : failed
-            ? 'error'
-            : !granted
-              ? 'locked'
-              : dirty
-                ? 'dirty'
-                : 'saved';
+  // Priorités, de la plus forte à la plus faible.
+  const statusOf = (): FileStatus | null => {
+    if (!link) return null;
+    if (busy) return 'saving';
+    if (conflict) return 'conflict';
+    if (failed === 'missing') return 'missing';
+    if (failed) return 'error';
+    if (!granted) return 'locked';
+    return dirty ? 'dirty' : 'saved';
+  };
+  const status = statusOf();
 
   return {
     supported,

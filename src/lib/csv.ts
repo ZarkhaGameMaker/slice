@@ -1,4 +1,5 @@
 import { daysInMonth, isoOf } from './dates';
+import { round2 } from './format';
 
 /** Texte sans accents, en minuscules et espaces simples : pour comparer libellés et en-têtes. */
 export const normalizeText = (s: string) =>
@@ -125,7 +126,7 @@ export function parseBankAmount(raw: string): number {
     s = s.replace(/\./g, '');
   }
   if (!/^\d+(\.\d+)?$/.test(s)) return NaN;
-  const n = Math.round(parseFloat(s) * 100) / 100;
+  const n = round2(parseFloat(s));
   return negative ? -n : n;
 }
 
@@ -229,13 +230,10 @@ function guessColumns(rows: string[][]): ColumnMap {
 }
 
 export interface CsvTable {
-  delimiter: string;
   /** En-têtes (générés « Colonne n » si le fichier n'en a pas). */
   headers: string[];
   /** Lignes de données, après l'en-tête. */
   rows: string[][];
-  /** Numéro (1-based) de la première ligne de données dans le fichier. */
-  firstLine: number;
   columns: ColumnMap;
   format: 'boursobank' | 'generic';
 }
@@ -266,5 +264,5 @@ export function readBankCsv(text: string): CsvTable {
     keys.includes('dateop') && (keys.includes('supplierfound') || keys.includes('categoryparent') || keys.includes('accountnum'))
       ? 'boursobank'
       : 'generic';
-  return { delimiter, headers, rows, firstLine: headerIndex + 2, columns, format };
+  return { headers, rows, columns, format };
 }

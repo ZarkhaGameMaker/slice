@@ -1,9 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { ACCOUNT_COLORS, categoriesFor, categoryOf } from '../lib/categories';
 import { NewCategory } from './CategoryForm';
-import { addMonths, daysInMonth, isoOf, monthKeyOf, parseISO, parseMonthKey } from '../lib/dates';
+import { addMonths, daysBetween, daysInMonth, isoOf, monthKeyOf, parseISO, parseMonthKey, toISO } from '../lib/dates';
 import { periodDay, periodKeyOf, periodStartDate, recurringDate } from '../lib/finance';
-import { amountToInput, dayFullLabel, dayShort, money, monthLabel, parseAmount } from '../lib/format';
+import { amountToInput, dayFullLabel, dayShort, money, monthLabel, parseAmount, plural } from '../lib/format';
 import { uid } from '../lib/store';
 import type { Account, CustomCategory, Entry, PeriodSetting, Recurring, Transaction, TxType } from '../lib/types';
 import { MinusIcon, PlusIcon, RepeatIcon, SkipIcon, TrashIcon, UndoIcon } from './Icons';
@@ -379,7 +379,7 @@ export function RecurringForm({ initial, defaults, accounts, today, onSubmit, on
         <div className="preview">
           <div className="preview__head">
             <RepeatIcon width={15} height={15} /> Prochaines échéances
-            {pastCount > 0 && <span className="badge">{pastCount} déjà passée{pastCount > 1 ? 's' : ''}, comptée{pastCount > 1 ? 's' : ''} dans le solde</span>}
+            {pastCount > 0 && <span className="badge">{pastCount} déjà passée{plural(pastCount)}, comptée{plural(pastCount)} dans le solde</span>}
           </div>
           <ul>
             {preview.map((p) => (
@@ -542,11 +542,11 @@ export function OccurrenceSheet({ entry, accountName, onSkip, onEditRule, onClos
         </p>
       </div>
       <div className="stack">
-        <button className="btn btn--soft btn--block" data-autofocus onClick={() => { onEditRule(); }}>
+        <button className="btn btn--soft btn--block" data-autofocus onClick={onEditRule}>
           <RepeatIcon width={16} height={16} /> Modifier l’opération automatique
         </button>
         <button className="btn btn--ghost-danger btn--block" onClick={() => { onSkip(); onClose(); }}>
-          <SkipIcon width={16} height={16} /> Ignorer pour {monthLabel(entry.monthKey ?? entry.date.slice(0, 7))}
+          <SkipIcon width={16} height={16} /> Ignorer pour {monthLabel(entry.monthKey ?? monthKeyOf(entry.date))}
         </button>
       </div>
     </Modal>
@@ -587,8 +587,8 @@ export function PeriodForm({ value, recurrings, accounts, today, onSubmit, onClo
     const start = periodStartDate(key, startDay);
     const next = parseISO(periodStartDate(addMonths(key, 1), startDay));
     next.setDate(next.getDate() - 1);
-    const end = isoOf(next.getFullYear(), next.getMonth(), next.getDate());
-    return { key, start, end, days: Math.round((next.getTime() - parseISO(start).getTime()) / 86_400_000) + 1 };
+    const end = toISO(next);
+    return { key, start, end, days: daysBetween(start, end) + 1 };
   });
 
   const submit = (e: FormEvent) => {

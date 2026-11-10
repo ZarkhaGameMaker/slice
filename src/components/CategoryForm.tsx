@@ -4,6 +4,8 @@ import { uid } from '../lib/store';
 import type { CustomCategory, TxType } from '../lib/types';
 import { CheckIcon, PlusIcon, TrashIcon } from './Icons';
 import { Modal } from './Modal';
+import { TypeTabs } from './TypeTabs';
+import { plural } from '../lib/format';
 
 /** Emojis proposés ; on peut aussi en taper un autre dans le champ. */
 const EMOJIS = [
@@ -154,26 +156,7 @@ export function CategoryManager({ categories, counts, onAdd, onUpdate, onDelete,
       }
     >
       <form id="modal-form" className="form" onSubmit={submit}>
-        <div className="segmented segmented--sm" role="tablist" aria-label="Type de catégorie">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!isIncome}
-            className={!isIncome ? 'is-active' : ''}
-            onClick={() => { setType('expense'); edit(null); }}
-          >
-            Dépenses
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isIncome}
-            className={isIncome ? 'is-active' : ''}
-            onClick={() => { setType('income'); edit(null); }}
-          >
-            Revenus
-          </button>
-        </div>
+        <TypeTabs value={type} onChange={(t) => { setType(t); edit(null); }} label="Type de catégorie" inForm />
 
         <div className="cat-group">
           <span className="cat-group__title">
@@ -212,7 +195,7 @@ export function CategoryManager({ categories, counts, onAdd, onUpdate, onDelete,
                   <span>
                     {used === 0
                       ? 'Supprimer cette catégorie ?'
-                      : `${used} opération${used > 1 ? 's' : ''} ${used > 1 ? 'passeront' : 'passera'} dans « Autre ».`}
+                      : `${used} opération${plural(used)} ${used > 1 ? 'passeront' : 'passera'} dans « Autre ».`}
                   </span>
                   <button type="button" className="btn btn--ghost btn--sm" onClick={() => setConfirm(false)}>
                     Annuler

@@ -11,7 +11,7 @@ import {
 } from '../lib/bankImport';
 import { categoriesFor } from '../lib/categories';
 import { hasEssentialColumns, type ColumnMap, type ColumnRole, type CsvTable } from '../lib/csv';
-import { signedMoney } from '../lib/format';
+import { plural, signedMoney } from '../lib/format';
 import { uid } from '../lib/store';
 import type { Account, Recurring, Transaction } from '../lib/types';
 import { Modal } from './Modal';
@@ -93,7 +93,13 @@ export function ImportDialog({ fileName, table, accounts, transactions, recurrin
   const setOverride = (line: number, patch: { checked?: boolean; category?: string }) =>
     setOverrides((o) => ({ ...o, [line]: { ...o[line], ...patch } }));
 
-  const count = (status: RowStatus) => analyzed.filter((r) => r.status === status).length;
+  // Un seul passage : le résumé interroge une dizaine de fois le même décompte.
+  const counts = useMemo(() => {
+    const map = {} as Record<RowStatus, number>;
+    for (const r of analyzed) map[r.status] = (map[r.status] ?? 0) + 1;
+    return map;
+  }, [analyzed]);
+  const count = (status: RowStatus) => counts[status] ?? 0;
   const chosen = analyzed.filter(isChecked);
   const visible = analyzed.filter((r) => (filter === 'all' ? true : filter === 'kept' ? isChecked(r) : !isChecked(r)));
   const shown = visible.slice(0, PREVIEW_LIMIT);
@@ -115,7 +121,7 @@ export function ImportDialog({ fileName, table, accounts, transactions, recurrin
   return (
     <Modal
       title="Importer des opérations"
-      subtitle={`${fileName} · ${table.rows.length} ligne${table.rows.length > 1 ? 's' : ''}`}
+      subtitle={`${fileName} · ${table.rows.length} ligne${plural(table.rows.length)}`}
       onClose={onClose}
       size="lg"
       footer={
@@ -123,12 +129,12 @@ export function ImportDialog({ fileName, table, accounts, transactions, recurrin
           <span className="import__foot-note">
             {chosen.length === 0
               ? 'Aucune opération sélectionnée'
-              : `${chosen.length} opération${chosen.length > 1 ? 's' : ''} seront ajoutées`}
+              : `${chosen.length} opération${plural(chosen.length)} seront ajoutées`}
           </span>
           <span className="spacer" />
           <button className="btn btn--ghost" onClick={onClose}>Annuler</button>
           <button className="btn btn--primary" onClick={confirm} disabled={chosen.length === 0}>
-            {chosen.length ? `Importer ${chosen.length} opération${chosen.length > 1 ? 's' : ''}` : 'Rien à importer'}
+            {chosen.length ? `Importer ${chosen.length} opération${plural(chosen.length)}` : 'Rien à importer'}
           </button>
         </>
       }
@@ -201,11 +207,11 @@ export function ImportDialog({ fileName, table, accounts, transactions, recurrin
 
         <div className="import__summary">
           <span className="import__chip is-new">{chosen.length} à importer</span>
-          {count('imported') > 0 && <span className="import__chip is-imported">{count('imported')} déjà importée{count('imported') > 1 ? 's' : ''}</span>}
+          {count('imported') > 0 && <span className="import__chip is-imported">{count('imported')} déjà importée{plural(count('imported'))}</span>}
           {count('recurring') > 0 && <span className="import__chip is-recurring">{count('recurring')} remplace{count('recurring') > 1 ? 'nt' : ''} une automatique</span>}
-          {count('duplicate') > 0 && <span className="import__chip is-duplicate">{count('duplicate')} doublon{count('duplicate') > 1 ? 's' : ''} probable{count('duplicate') > 1 ? 's' : ''}</span>}
+          {count('duplicate') > 0 && <span className="import__chip is-duplicate">{count('duplicate')} doublon{plural(count('duplicate'))} probable{plural(count('duplicate'))}</span>}
           {count('ignored') > 0 && <span className="import__chip">{count('ignored')} d’un compte non importé</span>}
-          {count('error') > 0 && <span className="import__chip is-error">{count('error')} illisible{count('error') > 1 ? 's' : ''}</span>}
+          {count('error') > 0 && <span className="import__chip is-error">{count('error')} illisible{plural(count('error'))}</span>}
           <span className="spacer" />
           <div className="segmented segmented--sm" role="tablist">
             {(['all', 'kept', 'dropped'] as Filter[]).map((f) => (

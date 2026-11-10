@@ -2,6 +2,7 @@ import { normalizeText, parseBankAmount, parseBankDate, type ColumnMap, type Csv
 import { addMonths, monthKeyOf, parseISO, toISO } from './dates';
 import { expandRecurring } from './finance';
 import type { Account, Recurring, Transaction, TxType } from './types';
+import { round2 } from './format';
 
 /** Une ligne du relevé, interprétée. */
 export interface ImportRow {
@@ -105,7 +106,7 @@ export function extractRows(table: CsvTable, columns: ColumnMap): ImportRow[] {
       const credit = parseBankAmount(cell(row, columns.credit));
       amount = Number.isNaN(debit) && Number.isNaN(credit)
         ? NaN
-        : Math.round(((Number.isNaN(credit) ? 0 : Math.abs(credit)) - (Number.isNaN(debit) ? 0 : Math.abs(debit))) * 100) / 100;
+        : round2((Number.isNaN(credit) ? 0 : Math.abs(credit)) - (Number.isNaN(debit) ? 0 : Math.abs(debit)));
     }
     const supplier = cell(row, columns.supplier);
     const rawLabel = cell(row, columns.label) || supplier;

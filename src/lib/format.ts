@@ -1,5 +1,10 @@
 import { parseISO, parseMonthKey } from './dates';
 
+/** Arrondi au centime : la règle d'arrondi de toute l'application tient ici. */
+export const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Marque du pluriel français : « 2 opération${plural(2)} ». */
+export const plural = (n: number) => (n > 1 ? 's' : '');
+
 const eur = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
 const eurRound = new Intl.NumberFormat('fr-FR', {
   style: 'currency',
@@ -55,7 +60,7 @@ export const dayFullLabel = (iso: string) => capitalize(dayFull.format(parseISO(
 export function parseAmount(input: string): number {
   const cleaned = input.replace(/[\s\u00a0\u202f€]/g, '').replace(',', '.');
   const n = Number(cleaned);
-  return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN;
+  return Number.isFinite(n) ? round2(n) : NaN;
 }
 
 export const amountToInput = (n: number) => String(n).replace('.', ',');

@@ -41,8 +41,6 @@ export function monthDiff(a: string, b: string): number {
 export const daysInMonth = (year: number, month: number) =>
   new Date(year, month + 1, 0).getDate();
 
-export const dayOfWeek = (iso: string) => parseISO(iso).getDay();
-
 /** Nombre de jours de `a` à `b`, négatif si `b` est antérieur. */
 export const daysBetween = (a: string, b: string) =>
   Math.round((parseISO(b).getTime() - parseISO(a).getTime()) / 86400000);

@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { categoryOf } from '../lib/categories';
-import { monthDiff } from '../lib/dates';
+import { monthDiff, monthKeyOf } from '../lib/dates';
 import { monthIndexOf, type DayPoint, type MonthData } from '../lib/finance';
 import {
   dayLabel,
@@ -9,6 +9,8 @@ import {
   monthName,
   monthShortName,
   periodRange,
+  plural,
+  round2,
   signedMoney,
   signedMoneyRound,
 } from '../lib/format';
@@ -83,7 +85,7 @@ function niceTicks(min: number, max: number, count: number): number[] {
   const norm = raw / mag;
   const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
   const out: number[] = [];
-  for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) out.push(Math.round(v * 100) / 100 || 0);
+  for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) out.push(round2(v) || 0);
   return out;
 }
 
@@ -315,7 +317,10 @@ export function MonthStrip({ months, index, onIndexChange, today, height }: Prop
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     handlers.onPointerMove(e);
-    if (e.pointerType === 'mouse' && !dragging && e.buttons === 0) setHover(pickAt(e.clientX));
+    if (e.pointerType === 'mouse' && !dragging && e.buttons === 0) {
+      const next = pickAt(e.clientX);
+      setHover((prev) => (prev && next && prev.i === next.i && prev.d === next.d ? prev : next));
+    }
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
@@ -496,7 +501,7 @@ export function MonthStrip({ months, index, onIndexChange, today, height }: Prop
                 const nearEdge = k <= 1 || k >= dim - 2;
                 const round = (p.day === 1 || (p.day % 5 === 0 && p.day <= 25)) && !(nearEdge && !edge);
                 if (compact ? edge || !round : !(edge || round)) return [];
-                return [{ k: k + 1, label: p.day === 1 && k > 0 ? `1 ${monthShortName(p.date.slice(0, 7))}` : String(p.day) }];
+                return [{ k: k + 1, label: p.day === 1 && k > 0 ? `1 ${monthShortName(monthKeyOf(p.date))}` : String(p.day) }];
               });
               // Période décalée (jour de paie) : on affiche ses dates à côté du mois.
               const shifted = m.days[0].day !== 1;
@@ -619,8 +624,9 @@ export function MonthStrip({ months, index, onIndexChange, today, height }: Prop
               {money(hovered.future ? hovered.estBalance : hovered.balance)}
             </strong>
           </div>
-          {hovered.entries.length > 0 ? (
-            <ul>
+          {hovered.entries.length > 0 && (
+            <>
+              <ul>
               {hovered.entries.slice(0, 5).map((e) => (
                 <li key={e.id}>
                   <span className="strip__tip-label">
@@ -631,11 +637,9 @@ export function MonthStrip({ months, index, onIndexChange, today, height }: Prop
                   </span>
                 </li>
               ))}
-              {hovered.entries.length > 5 && <li className="muted">+ {hovered.entries.length - 5} autres</li>}
-            </ul>
-          ) : null}
-          {hovered.entries.length > 0 ? (
-            <div className="strip__tip-total">
+                {hovered.entries.length > 5 && <li className="muted">+ {hovered.entries.length - 5} autres</li>}
+              </ul>
+              <div className="strip__tip-total">
               <div>
                 <span>Total du jour</span>
                 <strong className={hovered.income - hovered.expense >= 0 ? 'up' : 'down'}>
@@ -647,11 +651,12 @@ export function MonthStrip({ months, index, onIndexChange, today, height }: Prop
                   <span className="up">{signedMoney(hovered.income)}</span> · <span className="down">{signedMoney(-hovered.expense)}</span>
                 </small>
               )}
-              <small className="muted">
-                {hovered.entries.length} opération{hovered.entries.length > 1 ? 's' : ''}
-              </small>
-            </div>
-          ) : null}
+                <small className="muted">
+                  {hovered.entries.length} opération{plural(hovered.entries.length)}
+                </small>
+              </div>
+            </>
+          )}
           {estimated(hovered) && (
             <div className="strip__tip-est">
               <div>

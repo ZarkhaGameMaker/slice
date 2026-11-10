@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState } from 'react';
-import { addMonths, isoOf, monthKeyOf, parseISO, todayISO } from './dates';
+import { addMonths, monthKeyOf, parseISO, toISO, todayISO } from './dates';
 import type { Account, AppState, CustomCategory, PeriodSetting, Recurring, ThemeMode, Transaction, TxGroup, TxType } from './types';
+import { round2 } from './format';
 
 const STORAGE_KEY = 'slice:v1';
 /**
@@ -359,8 +360,8 @@ function withGroups(state: AppState): AppState {
     }
     groups.push(list.some((t) => t.id === g.leadId) ? g : { ...g, leadId: list[0].id });
   }
-  // Opérations restées rattachées à un groupe disparu.
-  const orphelines = state.transactions.some((t) => t.groupId && !groups.some((g) => g.id === t.groupId));
+  // Des groupes ont disparu : les opérations qui y renvoyaient sont à détacher.
+  const orphelines = dissous.size > 0;
   return {
     ...state,
     groups,
@@ -390,7 +391,7 @@ export function demoState(theme: ThemeMode): AppState {
 
   const transactions: Transaction[] = [];
   const add = (accountId: string, type: Transaction['type'], amount: number, date: string, label: string, category: string) =>
-    transactions.push({ id: uid(), accountId, type, amount: Math.round(amount * 100) / 100, date, label, category });
+    transactions.push({ id: uid(), accountId, type, amount: round2(amount), date, label, category });
 
   const templates: [string, string, number, number][] = [
     ['Supermarché', 'courses', 25, 95],
@@ -404,7 +405,7 @@ export function demoState(theme: ThemeMode): AppState {
 
   const end = parseISO(today);
   for (let d = parseISO(startDate); d <= end; d.setDate(d.getDate() + 1)) {
-    const iso = isoOf(d.getFullYear(), d.getMonth(), d.getDate());
+    const iso = toISO(d);
     const count = rand() < 0.55 ? (rand() < 0.3 ? 2 : 1) : 0;
     for (let i = 0; i < count; i++) {
       const [label, cat, min, max] = templates[Math.floor(rand() * templates.length)];

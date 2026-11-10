@@ -1,4 +1,5 @@
 import { categoryOf } from '../lib/categories';
+import { monthKeyOf } from '../lib/dates';
 import { nextOccurrences } from '../lib/finance';
 import { dayShort, money } from '../lib/format';
 import type { Account, Recurring } from '../lib/types';
@@ -16,7 +17,7 @@ interface Props {
 export function RecurringList({ rules, accounts, showAccount, today, onOpen, onAdd }: Props) {
   const sorted = [...rules].sort((a, b) => (a.type === b.type ? a.day - b.day : a.type === 'income' ? -1 : 1));
   const monthlyNet = rules
-    .filter((r) => !r.endMonth || r.endMonth >= today.slice(0, 7))
+    .filter((r) => !r.endMonth || r.endMonth >= monthKeyOf(today))
     .reduce((s, r) => s + (r.type === 'income' ? r.amount : -r.amount), 0);
 
   return (
@@ -50,7 +51,7 @@ export function RecurringList({ rules, accounts, showAccount, today, onOpen, onA
             const next = nextOccurrences(r, today, 1)[0];
             const cat = categoryOf(r.type, r.category);
             const acct = accounts.get(r.accountId);
-            const ended = !!r.endMonth && r.endMonth < today.slice(0, 7);
+            const ended = !!r.endMonth && r.endMonth < monthKeyOf(today);
             return (
               <li key={r.id}>
                 <button className={`rule${ended ? ' is-ended' : ''}`} onClick={() => onOpen(r)}>

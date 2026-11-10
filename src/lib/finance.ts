@@ -1,7 +1,6 @@
 import { addMonths, daysInMonth, isoOf, monthKeyOf, parseISO, parseMonthKey, toISO } from './dates';
+import { round2 } from './format';
 import type { Account, Entry, PeriodSetting, Recurring, Transaction, TxGroup, TxType } from './types';
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * Date effective d'une opération automatique pour un mois donné.

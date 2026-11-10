@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { categoryOf } from '../lib/categories';
 import { daysBetween } from '../lib/dates';
 import { groupNet } from '../lib/finance';
-import { amountToInput, dayMonthShort, money, parseAmount, signedMoney } from '../lib/format';
+import { amountToInput, dayMonthShort, money, parseAmount, plural, signedMoney } from '../lib/format';
 import { uid } from '../lib/store';
 import type { Account, Transaction, TxGroup, TxType } from '../lib/types';
 import { AmountInput, Field } from './Forms';
@@ -44,6 +44,10 @@ export function GroupForm({ anchor, group, transactions, accounts, showAccount, 
 
   const chosen = members.map((id) => byId.get(id)).filter((t): t is Transaction => !!t);
   const net = groupNet(chosen);
+  // Les deux côtés du groupe, pour le récapitulatif (« X dépensés · Y reçus »).
+  const sorties = chosen.filter((t) => t.type === 'expense');
+  const entrees = chosen.filter((t) => t.type === 'income');
+  const totalDe = (list: Transaction[]) => list.reduce((s, t) => s + t.amount, 0);
   const lead = byId.get(leadId) ?? chosen[0];
   const finalType = custom ? type : net.type;
   const finalAmount = custom ? parseAmount(amount) : net.amount;
@@ -164,10 +168,10 @@ export function GroupForm({ anchor, group, transactions, accounts, showAccount, 
               {signedMoney(finalType === 'income' ? finalAmount : -finalAmount)} en « {category?.label ?? '—'} »
             </strong>
             <small>
-              {members.length} opération{members.length > 1 ? 's' : ''} ·{' '}
-              {chosen.filter((t) => t.type === 'expense').length > 0 && `${money(chosen.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0))} dépensés`}
-              {chosen.some((t) => t.type === 'expense') && chosen.some((t) => t.type === 'income') && ' · '}
-              {chosen.filter((t) => t.type === 'income').length > 0 && `${money(chosen.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0))} reçus`}
+              {members.length} opération{plural(members.length)} ·{' '}
+              {sorties.length > 0 && `${money(totalDe(sorties))} dépensés`}
+              {sorties.length > 0 && entrees.length > 0 && ' · '}
+              {entrees.length > 0 && `${money(totalDe(entrees))} reçus`}
             </small>
           </span>
         </div>

@@ -40,11 +40,11 @@ import { TransactionList } from './components/TransactionList';
 import { setCustomCategories } from './lib/categories';
 import { todayISO } from './lib/dates';
 import { decodeText, readBankCsv, type CsvTable } from './lib/csv';
-import { useDataFile } from './lib/dataFile';
+import { parseStateText, serializeState, useDataFile } from './lib/dataFile';
 import { buildTimeline, monthIndexOf, periodDay, periodKeyOf, type Timeline } from './lib/finance';
-import { money, monthLabel, periodRange } from './lib/format';
+import { dayFullLabel, money, monthLabel, periodRange, plural } from './lib/format';
 import { usePresence, useViewport } from './lib/motion';
-import { demoState, emptyState, sanitizeState, useAppStore } from './lib/store';
+import { demoState, emptyState, useAppStore } from './lib/store';
 import type { Account, AppState, CustomCategory, Entry, PeriodSetting, Recurring, Transaction, TxGroup, TxType } from './lib/types';
 
 type ModalState =
@@ -116,8 +116,8 @@ export default function App() {
   const startDay = periodDay(state.period, recurrings);
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   // Les catégories de l'utilisateur sont déposées avant le rendu des enfants, qui les lisent
-  // tous (voir lib/categories.ts) : un useEffect arriverait trop tard.
-  useMemo(() => setCustomCategories(state.categories), [state.categories]);
+  // tous (voir lib/categories.ts) : un useEffect arriverait trop tard. L'appel se garde lui-même.
+  setCustomCategories(state.categories);
 
   // Comptes en service, et comptes réellement affichés (ceux mis de côté restent dans les données).
   const live = useMemo(() => accounts.filter((a) => !a.archived), [accounts]);
@@ -178,7 +178,7 @@ export default function App() {
         balance: t.balanceToday,
         monthIncome: month.income,
         monthExpense: month.expense,
-        subtitle: `${count} opération${count > 1 ? 's' : ''}${autos ? ` · ${autos} auto` : ''}`,
+        subtitle: `${count} opération${plural(count)}${autos ? ` · ${autos} auto` : ''}`,
         primary: state.primaryId === a.id,
         archived: !!a.archived,
       };
@@ -215,7 +215,7 @@ export default function App() {
   const todayKey = months[todayIndex]?.key ?? periodKeyOf(today, startDay);
 
   // L'accent de toute la page (boutons, courbe, surlignages, halo) prend la couleur du compte affiché.
-  const accent = accounts.length ? selected?.color : undefined;
+  const accent = selected?.color;
   useEffect(() => {
     const root = document.documentElement;
     [...root.classList].forEach((c) => c.startsWith('acct--') && root.classList.remove(c));
@@ -362,7 +362,7 @@ export default function App() {
     const moved = txs.length + recs.length;
     dispatch({ type: 'category/delete', id: category.id });
     notify(
-      `« ${category.label} » supprimée${moved ? ` · ${moved} opération${moved > 1 ? 's' : ''} dans « Autre »` : ''}`,
+      `« ${category.label} » supprimée${moved ? ` · ${moved} opération${plural(moved)} dans « Autre »` : ''}`,
       () => {
         dispatch({ type: 'category/add', category });
         for (const tx of txs) dispatch({ type: 'tx/update', tx });
@@ -425,18 +425,14 @@ export default function App() {
     if (file.supported) void file.open();
     else fileRef.current?.click();
   };
-  const saveFile = () => {
+  const runSave = (how: 'save' | 'saveAs') => {
     setMenuOpen(false);
     if (!canSave) return;
-    if (file.supported) void file.save();
+    if (file.supported) void file[how]();
     else exportData();
   };
-  const saveFileAs = () => {
-    setMenuOpen(false);
-    if (!canSave) return;
-    if (file.supported) void file.saveAs();
-    else exportData();
-  };
+  const saveFile = () => runSave('save');
+  const saveFileAs = () => runSave('saveAs');
 
   // Raccourcis : Ctrl+S, Ctrl+Maj+S, Ctrl+O (à la place de ceux du navigateur).
   const shortcuts = useRef({ openFile, saveFile, saveFileAs, busy: false });
@@ -495,7 +491,7 @@ export default function App() {
 
   const exportData = () => {
     setMenuOpen(false);
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const blob = new Blob([serializeState(state)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -510,7 +506,7 @@ export default function App() {
     e.target.value = '';
     if (!picked) return;
     try {
-      const parsed = sanitizeState(JSON.parse(await picked.text()));
+      const parsed = parseStateText(await picked.text());
       if (!parsed) throw new Error('format');
       const load = () => replaceAll({ ...parsed, theme: state.theme }, `« ${picked.name} » ouvert`);
       if (!accounts.length) return load();
@@ -564,7 +560,7 @@ export default function App() {
   };
 
   const importOperations = ({ transactions: txs, skips, alreadyImported, links }: ImportResult) => {
-    const already = alreadyImported ? ` · ${alreadyImported} déjà présente${alreadyImported > 1 ? 's' : ''}` : '';
+    const already = alreadyImported ? ` · ${alreadyImported} déjà présente${plural(alreadyImported)}` : '';
     if (!txs.length) return notify(`Aucune nouvelle opération${already}`);
     const bankRefs = Object.fromEntries(accounts.map((a) => [a.id, a.bankRefs]));
     dispatch({ type: 'tx/import', transactions: txs, skips, links });
@@ -601,7 +597,7 @@ export default function App() {
           <Logo />
           <div>
             <strong>Slice</strong>
-            <span>{new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full' }).format(new Date())}</span>
+            <span>{dayFullLabel(today)}</span>
           </div>
         </div>
         {file.supported && canSave && (
@@ -665,7 +661,7 @@ export default function App() {
                   <label className="menu__toggle">
                     <span>
                       Comptes mis de côté
-                      <small>{archivedCount} compte{archivedCount > 1 ? 's' : ''} · {showArchived ? 'affiché' : 'masqué'}{archivedCount > 1 ? 's' : ''}</small>
+                      <small>{archivedCount} compte{plural(archivedCount)} · {showArchived ? 'affiché' : 'masqué'}{plural(archivedCount)}</small>
                     </span>
                     <span className="switch">
                       <input
@@ -792,22 +788,13 @@ export default function App() {
         />
       )}
       {modal?.kind === 'confirm' && (
-        <ConfirmDialog
-          title={modal.title}
-          message={modal.message}
-          confirmLabel={modal.confirmLabel}
-          onConfirm={modal.onConfirm}
-          altLabel={modal.altLabel}
-          onAlt={modal.onAlt}
-          tone={modal.tone}
-          onClose={closeModal}
-        />
+        <ConfirmDialog {...modal} onClose={closeModal} />
       )}
       <Toast toast={toast} onDone={clearToast} />
     </>
   );
 
-  if (!accounts.length || !month) {
+  if (!month) {
     return (
       <div className="app">
         {header}
